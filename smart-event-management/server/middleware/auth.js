@@ -3,14 +3,13 @@ const User = require('../models/User');
 
 exports.protect = async (req, res, next) => {
   let token;
+  const { token: cookieToken } = req.cookies;
+  const { authorization } = req.headers;
 
-  if (req.cookies.token) {
-    token = req.cookies.token;
-  } else if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith('Bearer')
-  ) {
-    token = req.headers.authorization.split(' ')[1];
+  if (cookieToken) {
+    token = cookieToken;
+  } else if (authorization?.startsWith('Bearer ')) {
+    token = authorization.split(' ')[1];
   }
 
   if (!token) {
@@ -21,8 +20,8 @@ exports.protect = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id);
+    const { id } = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = await User.findById(id);
 
     if (!req.user) {
       return res.status(401).json({
@@ -42,10 +41,12 @@ exports.protect = async (req, res, next) => {
 
 exports.authorize = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    const { role } = req.user;
+
+    if (!roles.includes(role)) {
       return res.status(403).json({
         success: false,
-        message: `User role ${req.user.role} is not authorized to access this route`,
+        message: `User role ${role} is not authorized to access this route`,
       });
     }
     next();
